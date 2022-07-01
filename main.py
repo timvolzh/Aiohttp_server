@@ -1,10 +1,13 @@
+import json
+import asyncpg
+import pydantic
+
 from aiohttp import web
 from asyncio import run
 from gino import Gino
 
 app = web.Application()
 db = Gino()
-
 
 '''Models'''
 
@@ -35,6 +38,15 @@ async def orm_context(app):
     print('Finish')
 
 
+'Validator'
+
+
+class AnnounceValidator(pydantic.BaseModel):
+    title: str
+    description: str
+    user: int
+
+
 '''Views'''
 
 
@@ -44,26 +56,36 @@ class AnnounceView(web.View):
         announce_id = int(self.request.match_info['announce_id'])
         announce = await AnnounceModel.get(announce_id)
         if not announce:
-            return web.json_response({'Response': 'zhopa'})
+            return web.HTTPNotFound(text=json.dumps({'error': 'object not found'}), content_type='application/json')
         return web.json_response(await announce.to_dict())
 
     async def post(self):
         announce_data = await self.request.json()
-        new_announce = await AnnounceModel.create(**announce_data)
+        try:
+            new_announce = await AnnounceModel.create(**announce_data)
+        except asyncpg.exceptions.UniqueViolationError:
+            raise web.HTTPBadRequest(text=json.dumps({'error': 'already exist'}), content_type='application/json')
         return web.json_response({'id': new_announce.id})
 
-    async def path(self):
+    async def patch(self):
         pass
 
     async def delete(self):
-        pass
+        announce_id = int(self.request.match_info['announce_id'])
+        announce_for_delete = await AnnounceModel.get(announce_id)
+        if not announce_for_delete:
+            raise web.HTTPNotFound(text=json.dumps({'error': 'object not found'}), content_type='application/json')
+        deleted_announce = await announce_for_delete.delete()
+        return web.json_response({'status': 'success'})
 
 
 app.router.add_routes(
     [
+        web.post('/announce/', AnnounceView),
         web.get('/announce/{announce_id:\d+}', AnnounceView),
-        web.post('/announce/', AnnounceView)
-     ]
+        web.patch('/announce/{announce_id:\d+}', AnnounceView),
+        web.delete('/announce/{announce_id:\d+}', AnnounceView),
+    ]
 )
 
 app.cleanup_ctx.append(orm_context)
