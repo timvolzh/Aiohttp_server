@@ -66,6 +66,7 @@ class AnnounceView(web.View):
             updated_announce = await announce_for_update.update(**announce_data).apply()
         except Exception as e:
             print(e)
+        return web.json_response(await announce_for_update.to_dict())
 
     async def delete(self):
         announce_id = int(self.request.match_info['announce_id'])
