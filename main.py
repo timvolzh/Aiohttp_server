@@ -1,9 +1,7 @@
 import json
 import asyncpg
-import pydantic
 
 from aiohttp import web
-from asyncio import run
 from gino import Gino
 
 app = web.Application()
