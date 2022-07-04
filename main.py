@@ -38,15 +38,6 @@ async def orm_context(app):
     print('Finish')
 
 
-'Validator'
-
-
-class AnnounceValidator(pydantic.BaseModel):
-    title: str
-    description: str
-    user: int
-
-
 '''Views'''
 
 
@@ -68,7 +59,15 @@ class AnnounceView(web.View):
         return web.json_response({'id': new_announce.id})
 
     async def patch(self):
-        pass
+        announce_data = await self.request.json()
+        announce_id = int(self.request.match_info['announce_id'])
+        announce_for_update = await AnnounceModel.get(announce_id)
+        if not announce_for_update:
+            raise web.HTTPNotFound(text=json.dumps({'error': 'object not found'}), content_type='application/json')
+        try:
+            updated_announce = await announce_for_update.update(**announce_data).apply()
+        except Exception as e:
+            print(e)
 
     async def delete(self):
         announce_id = int(self.request.match_info['announce_id'])
@@ -90,3 +89,4 @@ app.router.add_routes(
 
 app.cleanup_ctx.append(orm_context)
 web.run_app(app)
+
